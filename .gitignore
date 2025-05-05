@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-apitest.py
-=======
-<<<<<<< HEAD
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -178,5 +174,3 @@ cython_debug/
 .pypirc
 =======
 apitest.py
->>>>>>> 04fd98a (First commit)
->>>>>>> b4a7cc3 (Updated Readme)
