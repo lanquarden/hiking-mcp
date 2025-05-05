@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-=======
+
 # 🏔️ Hiking MCP Server
 
 This is an MCP (Modular Command Processor) server that allows you to search for hiking routes on **Wikiloc**, using geographic and textual queries.
@@ -102,4 +101,3 @@ code "$env:APPDATA/Claude/claude_desktop_config.json"
 > Replace `/ABSOLUTE/PATH/TO/hiking-mcp` with the actual full path to your project directory.
 >
 > Use `where uv` on Windows or `which uv` on macOS/Linux to find the `uv` path if needed.
->>>>>>> b4a7cc3 (Updated Readme)
