@@ -155,6 +155,9 @@ async def get_routes(query: str, sw_lat: float, sw_lon: float, ne_lat: float, ne
     
     return "\n---\n".join(top_routes)
 
-if __name__ == "__main__":
-    # Initialize and run the server
+def main():
+    """Main function to run the server."""
     mcp.run(transport='stdio')
+
+if __name__ == "__main__":
+    main()

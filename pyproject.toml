@@ -1,5 +1,5 @@
 [project]
-name = "places-mcp-server"
+name = "mcp-hiking"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -11,3 +11,8 @@ dependencies = [
     "httpx>=0.28.1",
     "mcp[cli]>=1.6.0",
 ]
+[project.scripts]
+mcp-hiking = "mcp_server:main"
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
