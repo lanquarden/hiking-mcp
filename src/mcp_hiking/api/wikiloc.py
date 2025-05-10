@@ -1,10 +1,7 @@
+"""Wikiloc API integration for fetching hiking routes."""
 from typing import Any
 import httpx
-from mcp.server.fastmcp import FastMCP
 from bs4 import BeautifulSoup
-
-# Initialize FastMCP server
-mcp = FastMCP("wikiloc")
 
 # Constants
 WIKILOC_API_BASE = "https://es.wikiloc.com/wikiloc/find.do"
@@ -16,7 +13,6 @@ difficulty_translation = {
         "Muy Difícil": "Very Hard",
         "Solo expertos": "Experts Only"
 }
-
 
 async def make_wikiloc_request(url: str, params: dict) -> str | dict[str, Any] | None:
     """Make a request to Wikiloc and return either HTML or JSON based on response."""
@@ -32,11 +28,10 @@ async def make_wikiloc_request(url: str, params: dict) -> str | dict[str, Any] |
             if "application/json" in content_type:
                 return response.json()
             else:
-                return response.text  # HTML u otro formato
+                return response.text  # HTML or other format
         except Exception as e:
-            print(f"Error en la solicitud: {e}")
+            print(f"Error in request: {e}")
             return None
-
 
 def format_route(route: dict) -> str:
     """Format a route feature into a readable string with the new keys."""
@@ -53,7 +48,6 @@ TrailRank: {route['TrailRank']}
 Minimum altitude: {route['Altitud mínima']}
 Route type: {route['Tipo de ruta']}
 """
-
 
 def extract_trail_statistics(html: str) -> dict:
     """Extracts trail statistics from Wikiloc HTML."""
@@ -72,22 +66,20 @@ def extract_trail_statistics(html: str) -> dict:
 
         key = dt.get_text(strip=True).replace('\xa0', ' ')
 
-        # Caso especial: TrailRank
+        # Special case: TrailRank
         if "TrailRank" in key:
-            # Buscar solo el primer <span> con número
+            # Look for just the first <span> with number
             first_span = dd.find("span")
             value = first_span.get_text(strip=True) if first_span else ''
         else:
-            # Para otros casos, extraer todo el texto del dd
+            # For other cases, extract all text from dd
             value = dd.get_text(strip=True).replace('\xa0', ' ')
 
         data[key] = value
 
     return data
 
-
-@mcp.tool()
-async def get_routes(query: str, sw_lat: float, sw_lon: float, ne_lat: float, ne_lon: float, page: int = 1, max_results: int = 5) -> str:
+async def search_routes(query: str, sw_lat: float, sw_lon: float, ne_lat: float, ne_lon: float, page: int = 1, max_results: int = 5) -> str:
     """Search for routes on Wikiloc based on geographical area.
 
     Args:
@@ -99,15 +91,8 @@ async def get_routes(query: str, sw_lat: float, sw_lon: float, ne_lat: float, ne
         page: The page of results to fetch.
         max_results: The maximum number of results to return.
 
-
-    Output: 
-        "title": Name of the trail,
-        "url": Url,
-        "distance_km": Distance in KM,
-        "slope": Slope of the trail in meters,
-        "author": Author of the trail,
-        "location": Location of the trail,
-        "trailrank": Punctuation of the trail.
+    Returns:
+        A formatted string containing the routes found.
     """
     params = {
         "event": "map",
@@ -154,10 +139,3 @@ async def get_routes(query: str, sw_lat: float, sw_lon: float, ne_lat: float, ne
     top_routes = [format_route(route) for route in routes[:max_results]]
     
     return "\n---\n".join(top_routes)
-
-def main():
-    """Main function to run the server."""
-    mcp.run(transport='stdio')
-
-if __name__ == "__main__":
-    main()
