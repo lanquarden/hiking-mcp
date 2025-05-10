@@ -40,3 +40,9 @@ def mock_trail_html():
         </dl>
     </section>
     '''
+
+@pytest.fixture
+def mock_route_html():
+    """Load sample route HTML with geometry data for testing."""
+    with open('tests/resources/route.html', 'r', encoding='utf-8') as f:
+        return f.read()

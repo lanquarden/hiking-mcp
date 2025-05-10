@@ -1,7 +1,12 @@
 """Wikiloc API integration for fetching hiking routes."""
-from typing import Any
+from typing import Any, List, Tuple
+import base64
+import json
+import os
 import httpx
 from bs4 import BeautifulSoup
+import simplekml
+import wkbparse
 
 # Constants
 WIKILOC_API_BASE = "https://es.wikiloc.com/wikiloc/find.do"
@@ -13,6 +18,18 @@ difficulty_translation = {
         "Muy Difícil": "Very Hard",
         "Solo expertos": "Experts Only"
 }
+
+class Coordinates:
+    """Class to represent coordinates."""
+    def __init__(self, lat: float, lon: float, alt: float = 0.0):
+        self.lat = lat
+        self.lon = lon
+        self.alt = alt
+
+    @classmethod
+    def from_geojson(cls, coords: list) -> 'Coordinates':
+        """Create a Coordinates instance from GeoJSON coordinates [lon, lat, alt]."""
+        return cls(coords[1], coords[0], coords[2] if len(coords) > 2 else 0.0)
 
 async def make_wikiloc_request(url: str, params: dict) -> str | dict[str, Any] | None:
     """Make a request to Wikiloc and return either HTML or JSON based on response."""
@@ -78,6 +95,61 @@ def extract_trail_statistics(html: str) -> dict:
         data[key] = value
 
     return data
+
+def extract_geometry(html: str) -> List[Coordinates]:
+    """Extract the geometry data from the Wikiloc HTML."""
+    lines = html.split("\n")
+    for line in lines:
+        if "var mapData =" in line:
+            try:
+                # Find the JSON object
+                start = line.find("=") + 1
+                json_str = line[start:].strip().rstrip(";")
+                data = json.loads(json_str)
+                
+                # Decode base64 geometry
+                twkb_geom = base64.b64decode(data["mapData"][0]["geom"])
+                
+                # Parse TWKB to GeoJSON
+                geojson = wkbparse.twkb_to_geojson(twkb_geom)
+                
+                # Extract coordinates from GeoJSON LineString
+                if geojson["type"] == "LineString":
+                    return [Coordinates.from_geojson(coord) for coord in geojson["coordinates"]]
+                return []
+            except (json.JSONDecodeError, KeyError, IndexError, base64.binascii.Error) as e:
+                print(f"Error extracting geometry: {e}")
+                continue
+            
+    return []
+
+def create_kml(coordinates: List[Coordinates], output_file: str):
+    """Create a KML file from a list of coordinates."""
+    
+    kml = simplekml.Kml()
+    
+    # Create route style
+    route_style = simplekml.Style()
+    route_style.linestyle.color = 'ff0000ff'  # Red color
+    route_style.linestyle.width = 3
+    
+    # Create placemark for the route
+    route = kml.newlinestring(name='Hiking Route', description='Route line')
+    route.coords = [(c.lon, c.lat, c.alt) for c in coordinates]
+    route.style = route_style
+    
+    # Create start and end markers if we have coordinates
+    if coordinates:
+        # Start marker
+        start = kml.newpoint(name='Start', description='Starting point')
+        start.coords = [(coordinates[0].lon, coordinates[0].lat, coordinates[0].alt)]
+        
+        # End marker
+        end = kml.newpoint(name='End', description='End point')
+        end.coords = [(coordinates[-1].lon, coordinates[-1].lat, coordinates[-1].alt)]
+    
+    # Save KML file
+    kml.save(output_file)
 
 async def search_routes(query: str, sw_lat: float, sw_lon: float, ne_lat: float, ne_lon: float, page: int = 1, max_results: int = 5) -> str:
     """Search for routes on Wikiloc based on geographical area.
