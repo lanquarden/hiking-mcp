@@ -1,1 +1,1 @@
-"""API integrations for hiking route providers."""
+"""API integrations for hiking trail providers."""

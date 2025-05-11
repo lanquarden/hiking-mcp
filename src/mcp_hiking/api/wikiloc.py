@@ -1,15 +1,17 @@
-"""Wikiloc API integration for fetching hiking routes."""
+"""Wikiloc API integration for fetching hiking trails."""
 from typing import Any, List, Tuple
 import base64
 import json
-import os
+from pathlib import Path
+
 import httpx
-from bs4 import BeautifulSoup
 import simplekml
 import wkbparse
+from bs4 import BeautifulSoup
 
 # Constants
 WIKILOC_API_BASE = "https://es.wikiloc.com/wikiloc/find.do"
+GOOGLE_MAPS_LOCATION = "https://www.google.com/maps/search/?api=1&query="
 USER_AGENT = "wikiloc-app/1.0"
 difficulty_translation = {
         "Fácil": "Easy",
@@ -18,18 +20,6 @@ difficulty_translation = {
         "Muy Difícil": "Very Hard",
         "Solo expertos": "Experts Only"
 }
-
-class Coordinates:
-    """Class to represent coordinates."""
-    def __init__(self, lat: float, lon: float, alt: float = 0.0):
-        self.lat = lat
-        self.lon = lon
-        self.alt = alt
-
-    @classmethod
-    def from_geojson(cls, coords: list) -> 'Coordinates':
-        """Create a Coordinates instance from GeoJSON coordinates [lon, lat, alt]."""
-        return cls(coords[1], coords[0], coords[2] if len(coords) > 2 else 0.0)
 
 async def make_wikiloc_request(url: str, params: dict) -> str | dict[str, Any] | None:
     """Make a request to Wikiloc and return either HTML or JSON based on response."""
@@ -50,20 +40,20 @@ async def make_wikiloc_request(url: str, params: dict) -> str | dict[str, Any] |
             print(f"Error in request: {e}")
             return None
 
-def format_route(route: dict) -> str:
-    """Format a route feature into a readable string with the new keys."""
-    difficulty = difficulty_translation.get(route.get("Dificultad técnica", ""), "Unknown")
+def format_trail(trail: dict) -> str:
+    """Format a trail feature into a readable string with the new keys."""
+    difficulty = difficulty_translation.get(trail.get("Dificultad técnica", ""), "Unknown")
     return f"""
-Title: {route['title']}
-URL: {route['url']}
-Distance: {route['Distancia']} 
-Elevation gain: {route['Desnivel positivo']}
-Elevation loss: {route['Desnivel negativo']}
+Title: {trail['title']}
+URL: {trail['url']}
+Distance: {trail['Distancia']} 
+Elevation gain: {trail['Desnivel positivo']}
+Elevation loss: {trail['Desnivel negativo']}
 Difficulty : {difficulty}
-Maximum altitude: {route['Altitud máxima']}
-TrailRank: {route['TrailRank']}
-Minimum altitude: {route['Altitud mínima']}
-Route type: {route['Tipo de ruta']}
+Maximum altitude: {trail['Altitud máxima']}
+TrailRank: {trail['TrailRank']}
+Minimum altitude: {trail['Altitud mínima']}
+Trail type: {trail['Tipo de ruta']}
 """
 
 def extract_trail_statistics(html: str) -> dict:
@@ -96,7 +86,7 @@ def extract_trail_statistics(html: str) -> dict:
 
     return data
 
-def extract_geometry(html: str) -> List[Coordinates]:
+def extract_geometry(html: str) -> dict:
     """Extract the geometry data from the Wikiloc HTML."""
     lines = html.split("\n")
     for line in lines:
@@ -110,48 +100,63 @@ def extract_geometry(html: str) -> List[Coordinates]:
                 # Decode base64 geometry
                 twkb_geom = base64.b64decode(data["mapData"][0]["geom"])
                 
+                # Get trail name
+                slug = Path(data["mapData"][0]["prettyURL"]).stem
+                name = data["mapData"][0]["nom"]
+                start_url = f"{GOOGLE_MAPS_LOCATION}{data['mapData'][0]['blat']},{data['mapData'][0]['blng']}"
+                end_url = f"{GOOGLE_MAPS_LOCATION}{data['mapData'][0]['elat']},{data['mapData'][0]['elng']}"
+                
                 # Parse TWKB to GeoJSON
                 geojson = wkbparse.twkb_to_geojson(twkb_geom)
                 
                 # Extract coordinates from GeoJSON LineString
+                coords = []
                 if geojson["type"] == "LineString":
-                    return [Coordinates.from_geojson(coord) for coord in geojson["coordinates"]]
-                return []
+                    coords = [(coord[0],coord[1], coord[2]) for coord in geojson["coordinates"]]
+                    
+                return {
+                    "name": name,
+                    "slug": slug,
+                    "coordinates": coords,
+                    "start_url": start_url,
+                    "end_url": end_url
+                }
             except (json.JSONDecodeError, KeyError, IndexError, base64.binascii.Error) as e:
                 print(f"Error extracting geometry: {e}")
                 continue
             
-    return []
+    return {}
 
-def create_kml(coordinates: List[Coordinates], output_file: str):
+def create_kml(name: str, slug: str, coordinates: List[Tuple[float, float, float]]):
     """Create a KML file from a list of coordinates."""
     
     kml = simplekml.Kml()
-    
-    # Create route style
-    route_style = simplekml.Style()
-    route_style.linestyle.color = 'ff0000ff'  # Red color
-    route_style.linestyle.width = 3
-    
-    # Create placemark for the route
-    route = kml.newlinestring(name='Hiking Route', description='Route line')
-    route.coords = [(c.lon, c.lat, c.alt) for c in coordinates]
-    route.style = route_style
+     # Create trail style
+    trail_style = simplekml.Style()
+    trail_style.linestyle.color = 'ff0000ff'  # Red color
+    trail_style.linestyle.width = 3
+
+    # Create placemark for the trail
+    trail = kml.newlinestring(name=name, description='Hiking trail from WikiLoc')
+    trail.coords = coordinates
+    trail.style = trail_style
     
     # Create start and end markers if we have coordinates
     if coordinates:
         # Start marker
         start = kml.newpoint(name='Start', description='Starting point')
-        start.coords = [(coordinates[0].lon, coordinates[0].lat, coordinates[0].alt)]
+        start.coords = [(coordinates[0][0], coordinates[0][1], coordinates[0][2])]
         
         # End marker
         end = kml.newpoint(name='End', description='End point')
-        end.coords = [(coordinates[-1].lon, coordinates[-1].lat, coordinates[-1].alt)]
+        end.coords = [(coordinates[-1][0], coordinates[-1][1], coordinates[-1][2])]
     
     # Save KML file
-    kml.save(output_file)
+    kml_path = Path("routes") / f"{slug}.kml"
+    kml.save(kml_path)
+    return kml_path
 
-async def search_routes(query: str, sw_lat: float, sw_lon: float, ne_lat: float, ne_lon: float, page: int = 1, max_results: int = 5) -> str:
+async def search_trails(query: str, sw_lat: float, sw_lon: float, ne_lat: float, ne_lon: float, page: int = 1, max_results: int = 5) -> str:
     """Search for routes on Wikiloc based on geographical area.
 
     Args:
@@ -180,15 +185,15 @@ async def search_routes(query: str, sw_lat: float, sw_lon: float, ne_lat: float,
     data = await make_wikiloc_request(url, params)
 
     if not data or "spas" not in data:
-        return "Unable to fetch routes or no routes found."
+        return "Unable to fetch trails or no trails found."
 
     if not data["spas"]:
-        return "No routes found for this search."
+        return "No trails found for this search."
 
-    # Extract and sort the routes by TrailRank (descending order)
-    routes = []
+    # Extract and sort the trails by TrailRank (descending order)
+    trails = []
     for spa in data["spas"]:
-        route = {
+        trail = {
             "title": spa["name"],
             "url": f"https://es.wikiloc.com{spa['prettyURL']}",
             "distance_km": spa.get("distance"),
@@ -199,15 +204,15 @@ async def search_routes(query: str, sw_lat: float, sw_lon: float, ne_lat: float,
         }
         
         # Obtain the route details (HTML response)
-        response = await make_wikiloc_request(route["url"], {})
+        response = await make_wikiloc_request(trail["url"], {})
         if isinstance(response, str):  # Ensure we got HTML response
             details = extract_trail_statistics(response)
-            # Add details to the 'route' dictionary
-            route.update(details)
+            # Add details to the 'trail' dictionary
+            trail.update(details)
         
-        routes.append(route)
+        trails.append(trail)
 
     # Format the top results
-    top_routes = [format_route(route) for route in routes[:max_results]]
+    top_trails = [format_trail(trail) for trail in trails[:max_results]]
     
-    return "\n---\n".join(top_routes)
+    return "\n---\n".join(top_trails)

@@ -20,8 +20,8 @@ def mock_wikiloc_response():
     }
 
 @pytest.fixture
-def mock_trail_html():
-    """Sample trail HTML for testing."""
+def mock_trail_statistics_html():
+    """Sample trail statistics HTML section for testing extract_trail_statistics."""
     return '''
     <section id="trail-data">
         <dl class="data-items">
@@ -42,7 +42,7 @@ def mock_trail_html():
     '''
 
 @pytest.fixture
-def mock_route_html():
-    """Load sample route HTML with geometry data for testing."""
-    with open('tests/resources/route.html', 'r', encoding='utf-8') as f:
+def mock_trail_html():
+    """Load sample trail HTML with geometry data for testing."""
+    with open('tests/resources/trail.html', 'r', encoding='utf-8') as f:
         return f.read()

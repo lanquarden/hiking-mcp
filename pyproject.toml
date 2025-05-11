@@ -1,7 +1,7 @@
 [project]
 name = "mcp-hiking"
 version = "0.1.0"
-description = "Model Context Protocol (MCP) server for searching hiking routes on Wikiloc"
+description = "Model Context Protocol (MCP) server for searching hiking trails on Wikiloc"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

@@ -1,7 +1,7 @@
 
 # 🏔️ Hiking MCP Server
 
-This is an MCP (Modular Command Processor) server that allows you to search for hiking routes on **Wikiloc**, using geographic and textual queries.
+This is an MCP (Modular Command Processor) server that allows you to search for hiking trails on **Wikiloc**, using geographic and textual queries.
 
 ---
 
