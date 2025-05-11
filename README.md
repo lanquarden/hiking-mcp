@@ -51,7 +51,7 @@ uv add mcp[cli] httpx beautifulsoup4
 To start the server, run:
 
 ```bash
-uv run mcp-server.py
+uv run mcp-hiking
 ```
 
 This will start the MCP server, ready to accept commands via `stdio`.
@@ -86,12 +86,11 @@ code "$env:APPDATA/Claude/claude_desktop_config.json"
 {
   "mcpServers": {
     "hiking": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-        "--directory",
-        "/ABSOLUTE/PATH/TO/hiking-mcp",
-        "run",
-        "mcp-server.py"
+        "--from",
+        "git+https://github/lanquarden/mcp-hiking",
+        "mcp-hiking"
       ]
     }
   }

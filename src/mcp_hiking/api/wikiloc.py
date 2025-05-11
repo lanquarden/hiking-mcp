@@ -154,7 +154,7 @@ def create_kml(name: str, slug: str, coordinates: List[Tuple[float, float, float
     # Save KML file
     kml_path = Path("routes") / f"{slug}.kml"
     kml.save(kml_path)
-    return kml_path
+    return kml_path.absolute()
 
 async def search_trails(query: str, sw_lat: float, sw_lon: float, ne_lat: float, ne_lon: float, page: int = 1, max_results: int = 5) -> str:
     """Search for routes on Wikiloc based on geographical area.
